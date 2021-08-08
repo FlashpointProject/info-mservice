@@ -13,10 +13,10 @@ import (
 
 var client *elasticsearch.Client = nil
 
-func esInit() error {
+func esInit(esUri string) error {
 	cfg := elasticsearch.Config{
 		Addresses: []string{
-			"http://10.10.0.6:9200",
+			esUri,
 		},
 	}
 	var err error

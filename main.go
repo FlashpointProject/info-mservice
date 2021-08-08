@@ -11,11 +11,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/tkanos/gonfig"
 )
 
 var master_key string = ""
 var generic_keys []string = []string{}
 var write_keys []string = []string{}
+
+type ConfigFile struct {
+	Port   string `json:"Port"`
+	EsUri  string `json:"EsUri"`
+	DbPath string `json:"DbPath"`
+}
 
 type ApiResult struct {
 	Message string      `json:"message"`
@@ -190,10 +197,17 @@ func listApiKeys(w http.ResponseWriter, r *http.Request) {
 	sendApiResult(w, http.StatusOK, "Success", keys)
 }
 
+func loadConfig() ConfigFile {
+	configuration := ConfigFile{}
+	fileName := "./config.json"
+	gonfig.GetConf(fileName, &configuration)
+	return configuration
+}
+
 func loadWriteKeys() error {
-	raw_keys, err := os.ReadFile("../write_keys")
+	raw_keys, err := os.ReadFile("./write_keys")
 	if err != nil {
-		_, err = os.Create("../write_keys")
+		_, err = os.Create("./write_keys")
 		if err != nil {
 			return err
 		}
@@ -212,9 +226,9 @@ func loadWriteKeys() error {
 }
 
 func loadGenericKeys() error {
-	raw_keys, err := os.ReadFile("../generic_keys")
+	raw_keys, err := os.ReadFile("./generic_keys")
 	if err != nil {
-		_, err = os.Create("../generic_keys")
+		_, err = os.Create("./generic_keys")
 		if err != nil {
 			return err
 		}
@@ -282,7 +296,7 @@ func saveWriteKeys() error {
 	for i := 0; i < len(write_keys); i++ {
 		content = content + "\n" + write_keys[i]
 	}
-	return os.WriteFile("../write_keys", []byte(content), 0644)
+	return os.WriteFile("./write_keys", []byte(content), 0644)
 }
 
 func saveGenericKeys() error {
@@ -290,10 +304,10 @@ func saveGenericKeys() error {
 	for i := 0; i < len(generic_keys); i++ {
 		content = content + "\n" + generic_keys[i]
 	}
-	return os.WriteFile("../generic_keys", []byte(content), 0644)
+	return os.WriteFile("./generic_keys", []byte(content), 0644)
 }
 
-func handleRequests() {
+func handleRequests(port string) {
 	router := mux.NewRouter()
 	router.HandleFunc("/", homePage)
 	router.HandleFunc("/api/games", generalAuth(searchApi)).Methods("GET")
@@ -306,13 +320,13 @@ func handleRequests() {
 	router.HandleFunc("/api/tag", writeAuth(apiTagNewPost)).Methods("POST")
 	router.HandleFunc("/api/tags", generalAuth(apiTagsGet)).Methods("GET")
 	router.HandleFunc("/api/categories", generalAuth(apiCategoriesGet)).Methods("GET")
-	log.Fatal(http.ListenAndServe(":8000", router))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
 }
 
 func main() {
-	raw_master_key, err := os.ReadFile("../master_key")
+	raw_master_key, err := os.ReadFile("./master_key")
 	if err != nil {
-		_, err := os.Create("../master_key")
+		_, err := os.Create("./master_key")
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -334,12 +348,14 @@ func main() {
 		log.Printf("Error loading write keys: %v", err)
 		return
 	}
-	err = esInit()
+	config := loadConfig()
+	log.Printf("%v", config)
+	err = esInit(config.EsUri)
 	if err != nil {
 		log.Printf("esInit Error: %v", err)
 		return
 	}
-	err = dbInit()
+	err = dbInit(config.DbPath)
 	if err != nil {
 		log.Printf("dbInit Error: %v", err)
 		return
@@ -351,5 +367,5 @@ func main() {
 	// }
 	// log.Printf("Total Games Loaded: %d", count)
 	log.Println("API Initialized!")
-	handleRequests()
+	handleRequests(config.Port)
 }

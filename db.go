@@ -12,9 +12,9 @@ import (
 
 var db *sql.DB
 
-func dbInit() error {
+func dbInit(dbPath string) error {
 	var err error
-	db, err = sql.Open("sqlite3", "./flashpoint.sqlite")
+	db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return err
 	}

@@ -1,5 +1,6 @@
 master_key
 generic_keys
 write_keys
-src/__debug_bin
-src/flashpoint.sqlite*
+config.json
+__debug_bin
+flashpoint.sqlite*
