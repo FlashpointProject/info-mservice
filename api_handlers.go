@@ -27,11 +27,16 @@ func apiCategoriesGet(w http.ResponseWriter, r *http.Request) {
 func apiTagsGet(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	name, present := query["name"]
-	if !present {
-		sendApiResult(w, 400, "'name' param is required", nil)
-		return
+	after_date, datePresent := query["after_date"]
+	cleanName := ""
+	if present {
+		cleanName = name[0]
 	}
-	tags, err := findTags(name[0])
+	cleanDate := "2000-01-01"
+	if datePresent {
+		cleanDate = after_date[0]
+	}
+	tags, err := findTags(cleanName, cleanDate)
 	if err != nil {
 		printError(err)
 		sendApiResult(w, err.status, err.message, nil)

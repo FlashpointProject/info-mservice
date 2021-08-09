@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var dbDateLayout = "2020-01-01 01:01:01"
 var db *sql.DB
 
 func dbInit(dbPath string) error {
@@ -486,10 +488,11 @@ func updateTag(tagId int, update Api_TagModel, tx *sql.Tx) *DbResultError {
 		}
 	}
 	aliasRows.Close()
-	_, err = tx.Exec("UPDATE tag SET categoryId = ?, primaryAliasId = ?, description = ? WHERE tag.id = ?",
+	_, err = tx.Exec("UPDATE tag SET categoryId = ?, primaryAliasId = ?, description = ?, dateModified = ? WHERE tag.id = ?",
 		curTag.categoryId,
 		curTag.primaryAliasId,
 		curTag.description,
+		(time.Now().Format(dbDateLayout)),
 		curTag.id)
 	if err != nil {
 		return &DbResultError{status: 500, message: "", err: err}
@@ -502,9 +505,15 @@ func updateTag(tagId int, update Api_TagModel, tx *sql.Tx) *DbResultError {
 	return nil
 }
 
-func findTags(partial string) ([]Api_TagModel, *DbResultError) {
+func findTags(partial string, date string) ([]Api_TagModel, *DbResultError) {
 	formedPartial := fmt.Sprintf("%%%s%%", partial)
-	aliasRows, err := db.Query("SELECT * FROM tag_alias WHERE tag_alias.name LIKE ?", formedPartial)
+	var aliasRows *sql.Rows
+	var err error
+	if partial != "" {
+		aliasRows, err = db.Query("SELECT * FROM tag_alias WHERE tag_alias.name LIKE ?", formedPartial)
+	} else {
+		aliasRows, err = db.Query("SELECT * FROM tag_alias")
+	}
 	if err != nil {
 		return nil, &DbResultError{status: 500, message: "", err: err}
 	}
@@ -523,11 +532,16 @@ func findTags(partial string) ([]Api_TagModel, *DbResultError) {
 			continue
 		}
 
-		row := db.QueryRow("SELECT * FROM tag WHERE tag.id = ?", alias.tagId)
+		row := db.QueryRow("SELECT * FROM tag WHERE tag.id = ? AND tag.dateModified > ?", alias.tagId, date)
 		var dbTag TagModel
 		err = row.Scan(&dbTag.id, &dbTag.dateModified, &dbTag.primaryAliasId, &dbTag.categoryId, &dbTag.description)
 		if err != nil {
-			return nil, &DbResultError{status: 500, message: "", err: err}
+			if err == sql.ErrNoRows {
+				// Out of date scope, skip
+				continue
+			} else {
+				return nil, &DbResultError{status: 500, message: "", err: err}
+			}
 		}
 
 		desc := nullStringToVal(dbTag.description)
