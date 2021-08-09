@@ -135,7 +135,6 @@ func _createTagAlias(name string, tagId int, tx *sql.Tx) (int, *DbResultError) {
 	if err != nil {
 		return 0, &DbResultError{status: 500, message: "", err: err}
 	}
-	log.Println(id)
 	return int(id), nil
 }
 
@@ -405,7 +404,6 @@ func updateTag(tagId int, update Api_TagModel, tx *sql.Tx) *DbResultError {
 		}
 	}
 	if update.PrimaryAlias != nil {
-		log.Println("Setting New pAlias")
 		existing, err := _getTagAlias(strings.TrimSpace(*update.PrimaryAlias))
 		if err != nil && err.status == 500 {
 			log.Fatal(err)
@@ -501,7 +499,6 @@ func updateTag(tagId int, update Api_TagModel, tx *sql.Tx) *DbResultError {
 	if err != nil {
 		return &DbResultError{status: 500, message: "", err: err}
 	}
-	log.Println("DOING COMMIT")
 	return nil
 }
 
